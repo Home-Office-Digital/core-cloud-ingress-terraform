@@ -57,3 +57,30 @@ variable "ingress_profile" {
   type        = string
   default     = "standard"
 }
+
+variable "custom_listener_rules" {
+  description = "Optional listener rules for custom ingress profiles. Rules can include OIDC authentication before forwarding."
+  type = list(object({
+    name              = string
+    priority          = number
+    target_group_type = optional(string, "http2")
+    host_headers      = optional(list(string), [])
+    path_patterns     = optional(list(string), [])
+    oidc = optional(object({
+      authorization_endpoint              = string
+      client_id                           = string
+      client_secret                       = optional(string)
+      client_secret_secret_arn            = optional(string)
+      client_secret_secret_json_key       = optional(string, "client_secret")
+      issuer                              = string
+      token_endpoint                      = string
+      user_info_endpoint                  = string
+      on_unauthenticated_request          = optional(string, "authenticate")
+      scope                               = optional(string, "openid")
+      session_cookie_name                 = optional(string, "AWSELBAuthSessionCookie")
+      session_timeout                     = optional(number, 604800)
+      authentication_request_extra_params = optional(map(string), {})
+    }))
+  }))
+  default = []
+}

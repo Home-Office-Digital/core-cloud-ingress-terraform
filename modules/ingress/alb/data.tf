@@ -21,3 +21,13 @@ data "aws_subnets" "filtered_subnets" {
 
 # Hosted zone ID used by ALB DNS names in this region
 data "aws_lb_hosted_zone_id" "main" {}
+
+# Resolve OIDC client secrets from Secrets Manager for custom listener rules.
+data "aws_secretsmanager_secret_version" "oidc_client_secrets" {
+  for_each = {
+    for rule_name, rule in local.custom_listener_rules : rule_name => rule
+    if try(rule.oidc.client_secret_secret_arn, null) != null
+  }
+
+  secret_id = each.value.oidc.client_secret_secret_arn
+}
