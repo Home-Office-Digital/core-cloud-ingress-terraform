@@ -177,7 +177,7 @@ resource "aws_lb_listener" "https_listener" {
 # Custom Listener Rules (custom profile)
 ############################
 resource "aws_lb_listener_rule" "custom_profile_rules" {
-  for_each = var.external_ingress && var.ingress_profile != "standard" ? local.custom_listener_rules : {}
+  for_each = var.external_ingress && var.ingress_profile == "custom" ? local.custom_listener_rules : {}
 
   listener_arn = aws_lb_listener.https_listener[0].arn
   priority     = each.value.priority
