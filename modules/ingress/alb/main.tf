@@ -10,8 +10,8 @@ locals {
 # Security Group (conditional)
 ############################
 resource "aws_security_group" "alb_sg" {
-  count       = var.external_ingress ? 1 : 0
-  name_prefix = var.tenant == "" ? "ingress-external-${var.account_id}-" : "${var.tenant}-external-${var.account_id}-"
+  count       = var.ingress_profile != "standard" ? 1 : 0
+  name_prefix = var.tenant == "" ? "ingress-${var.ingress_profile}-${var.account_id}-" : "${var.tenant}-${var.ingress_profile}-${var.account_id}-"
   description = "Allow inbound traffic to ALB"
   vpc_id      = local.vpc_id
   tags        = var.tags
@@ -37,8 +37,8 @@ resource "aws_security_group" "alb_sg" {
 # ALB (conditional)
 ############################
 resource "aws_lb" "tenant_alb" {
-  count              = var.external_ingress ? 1 : 0
-  name               = var.tenant == "" ? "ingress-external-${var.account_id}" : "${var.tenant}-external-${var.account_id}"
+  count              = var.ingress_profile != "standard" ? 1 : 0
+  name               = var.tenant == "" ? "ingress-${var.ingress_profile}-${var.account_id}" : "${var.tenant}-${var.ingress_profile}-${var.account_id}"
   internal           = false
   load_balancer_type = "application"
   security_groups    = [aws_security_group.alb_sg[0].id]
@@ -51,7 +51,7 @@ resource "aws_lb" "tenant_alb" {
   access_logs {
     enabled = true
     bucket  = "aws-accelerator-elb-access-logs-905418430070-eu-west-2"
-    prefix  = var.tenant == "" ? "${var.perimeter_account_id}/elb-ingress-external-${var.account_id}" : "${var.perimeter_account_id}/elb-${var.tenant}-external-${var.account_id}"
+    prefix  = var.tenant == "" ? "${var.perimeter_account_id}/elb-ingress-${var.ingress_profile}-${var.account_id}" : "${var.perimeter_account_id}/elb-${var.tenant}-${var.ingress_profile}-${var.account_id}"
   }
 
 }
@@ -60,8 +60,8 @@ resource "aws_lb" "tenant_alb" {
 # Target Group (conditional)
 ############################
 resource "aws_lb_target_group" "tenant_target_group" {
-  count       = var.external_ingress ? 1 : 0
-  name        = var.tenant == "" ? "ingress-external-${var.account_id}-tg" : "${var.tenant}-external-${var.account_id}-tg"
+  count       = var.ingress_profile != "standard" ? 1 : 0
+  name        = var.tenant == "" ? "ingress-${var.ingress_profile}-${var.account_id}-tg" : "${var.tenant}-${var.ingress_profile}-${var.account_id}-tg"
   port        = 443
   protocol    = "HTTPS"
   target_type = "ip"
@@ -84,7 +84,7 @@ resource "aws_lb_target_group" "tenant_target_group" {
 # Register NLB IPs (conditional)
 ############################
 resource "aws_lb_target_group_attachment" "tg_attachment" {
-  for_each          = var.external_ingress ? toset(var.workload_external_nlb_ips) : []
+  for_each          = var.ingress_profile != "standard" ? toset(var.workload_external_nlb_ips) : []
   target_group_arn  = aws_lb_target_group.tenant_target_group[0].arn
   target_id         = each.value
   port              = 443
@@ -95,7 +95,7 @@ resource "aws_lb_target_group_attachment" "tg_attachment" {
 # HTTPS Listener (conditional)
 ############################
 resource "aws_lb_listener" "https_listener" {
-  count             = var.external_ingress ? 1 : 0
+  count             = var.ingress_profile != "standard" ? 1 : 0
   load_balancer_arn = aws_lb.tenant_alb[0].arn
   port              = 443
   protocol          = "HTTPS"
@@ -114,7 +114,7 @@ resource "aws_lb_listener" "https_listener" {
 # Optional wait (conditional)
 ############################
 resource "time_sleep" "wait_60_seconds" {
-  count           = var.external_ingress ? 1 : 0
+  count           = var.ingress_profile != "standard" ? 1 : 0
   depends_on      = [aws_lb.tenant_alb]
   create_duration = "60s"
 }

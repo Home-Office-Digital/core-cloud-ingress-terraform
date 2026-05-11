@@ -51,3 +51,9 @@ variable "acm_certificate_arn" {
   description = "ACM Cert ARN"
   type        = string
 }
+
+variable "ingress_profile" {
+  description = "Ingress profile to determine conditional resource creation"
+  type        = string
+  default     = "standard"
+}
