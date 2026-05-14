@@ -53,32 +53,42 @@ variable "acm_certificate_arn" {
 }
 
 variable "custom_listener_rules" {
-  description = "Listener rules for custom ingress profile. Supports host/path/source-ip/http-header conditions and optional OIDC auth."
+  description = "Custom listener rules from accounts config. Supports source-ip, path-pattern, host-header, http-header, and optional OIDC authentication."
   type = list(object({
-    name              = string
-    priority          = number
-    target_group_type = optional(string, "http2")
-    host_headers      = optional(list(string), [])
-    path_patterns     = optional(list(string), [])
-    source_ips        = optional(list(string), [])
-    http_header_conditions = optional(list(object({
-      name   = string
-      values = list(string)
-    })), [])
-    oidc = optional(object({
-      authorization_endpoint              = string
-      client_id                           = string
-      client_secret                       = optional(string)
-      client_secret_secret_arn            = optional(string)
-      client_secret_secret_json_key       = optional(string, "client_secret")
-      issuer                              = string
-      token_endpoint                      = string
-      user_info_endpoint                  = string
-      on_unauthenticated_request          = optional(string, "authenticate")
-      scope                               = optional(string, "openid")
-      session_cookie_name                 = optional(string, "AWSELBAuthSessionCookie")
-      session_timeout                     = optional(number, 604800)
-      authentication_request_extra_params = optional(map(string), {})
+    ruleName = string
+    priority = number
+    conditions = list(object({
+      field  = string
+      values = optional(list(string), [])
+      hostHeaderConfig = optional(object({
+        values = list(string)
+      }))
+      sourceIpConfig = optional(object({
+        values = list(string)
+      }))
+      httpHeaderConfig = optional(object({
+        httpHeaderName = string
+        values         = list(string)
+      }))
+    }))
+    actions = list(object({
+      type            = string
+      targetGroupName = optional(string)
+      authenticateOidcConfig = optional(object({
+        issuer                           = string
+        authorizationEndpoint            = string
+        tokenEndpoint                    = string
+        userInfoEndpoint                 = string
+        clientId                         = string
+        clientSecret                     = optional(string)
+        clientSecretSecretArn            = optional(string)
+        clientSecretSecretJsonKey        = optional(string, "client_secret")
+        onUnauthenticatedRequest         = optional(string, "authenticate")
+        scope                            = optional(string, "openid")
+        sessionCookieName                = optional(string, "AWSELBAuthSessionCookie")
+        sessionTimeout                   = optional(number, 604800)
+        authenticationRequestExtraParams = optional(map(string), {})
+      }))
     }))
   }))
   default = []

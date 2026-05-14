@@ -1,7 +1,7 @@
-# ALB-specific outputs (null when external_ingress = false)
+# ALB-specific outputs
 output "alb_dns_name" {
-  description = "ALB DNS name (empty when disabled)"
-  value       = var.external_ingress ? aws_lb.tenant_alb[0].dns_name : "no-public-ingress-no-perimeter-alb"
+  description = "ALB DNS name"
+  value       = aws_lb.tenant_alb.dns_name
 }
 
 output "alb_hosted_zone_id" {

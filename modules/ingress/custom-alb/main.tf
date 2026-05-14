@@ -5,8 +5,72 @@ locals {
   vpc_id            = data.aws_vpcs.filtered_vpcs.ids[0]
   public_subnet_ids = data.aws_subnets.filtered_subnets.ids
 
+  raw_custom_listener_rules = {
+    for rule in var.custom_listener_rules : rule.ruleName => rule
+  }
+
+  forward_target_group_names = {
+    for rule_name, rule in local.raw_custom_listener_rules :
+    rule_name => try(one([for action in rule.actions : action.targetGroupName if action.type == "forward"]), "")
+  }
+
+  oidc_actions = {
+    for rule_name, rule in local.raw_custom_listener_rules :
+    rule_name => try(one([for action in rule.actions : action.authenticateOidcConfig if action.type == "authenticate-oidc"]), null)
+  }
+
   custom_listener_rules = {
-    for rule in var.custom_listener_rules : rule.name => rule
+    for rule_name, rule in local.raw_custom_listener_rules :
+    rule_name => {
+      priority = rule.priority
+      target_group_type = (
+        can(regex("http1", lower(local.forward_target_group_names[rule_name])))
+        ? "http1"
+        : can(regex("http2", lower(local.forward_target_group_names[rule_name])))
+        ? "http2"
+        : "invalid"
+      )
+      host_headers = flatten([
+        for condition in rule.conditions :
+        condition.field == "host-header"
+        ? try(condition.hostHeaderConfig.values, try(condition.values, []))
+        : []
+      ])
+      path_patterns = flatten([
+        for condition in rule.conditions :
+        condition.field == "path-pattern"
+        ? try(condition.values, [])
+        : []
+      ])
+      source_ips = flatten([
+        for condition in rule.conditions :
+        condition.field == "source-ip"
+        ? try(condition.sourceIpConfig.values, try(condition.values, []))
+        : []
+      ])
+      http_header_conditions = [
+        for condition in rule.conditions : {
+          name   = condition.httpHeaderConfig.httpHeaderName
+          values = condition.httpHeaderConfig.values
+        }
+        if condition.field == "http-header"
+      ]
+      oidc = local.oidc_actions[rule_name] == null ? null : {
+        authorization_endpoint              = local.oidc_actions[rule_name].authorizationEndpoint
+        client_id                           = local.oidc_actions[rule_name].clientId
+        client_secret                       = try(local.oidc_actions[rule_name].clientSecret, null)
+        client_secret_secret_arn            = try(local.oidc_actions[rule_name].clientSecretSecretArn, null)
+        client_secret_secret_json_key       = try(local.oidc_actions[rule_name].clientSecretSecretJsonKey, "client_secret")
+        issuer                              = local.oidc_actions[rule_name].issuer
+        token_endpoint                      = local.oidc_actions[rule_name].tokenEndpoint
+        user_info_endpoint                  = local.oidc_actions[rule_name].userInfoEndpoint
+        on_unauthenticated_request          = try(local.oidc_actions[rule_name].onUnauthenticatedRequest, "authenticate")
+        scope                               = try(local.oidc_actions[rule_name].scope, "openid")
+        session_cookie_name                 = try(local.oidc_actions[rule_name].sessionCookieName, "AWSELBAuthSessionCookie")
+        session_timeout                     = try(local.oidc_actions[rule_name].sessionTimeout, 604800)
+        authentication_request_extra_params = try(local.oidc_actions[rule_name].authenticationRequestExtraParams, {})
+      }
+    }
   }
 
   oidc_client_secrets = {
@@ -21,10 +85,9 @@ locals {
 }
 
 ############################
-# Security Group (conditional)
+# Security Group
 ############################
 resource "aws_security_group" "alb_sg" {
-  count       = var.external_ingress ? 1 : 0
   name_prefix = var.tenant == "" ? "ingress-external-custom-${var.account_id}-" : "${var.tenant}-ingress-external-custom-${var.account_id}-"
   description = "Allow inbound traffic to ALB"
   vpc_id      = local.vpc_id
@@ -48,14 +111,13 @@ resource "aws_security_group" "alb_sg" {
 }
 
 ############################
-# ALB (conditional)
+# ALB
 ############################
 resource "aws_lb" "tenant_alb" {
-  count              = var.external_ingress ? 1 : 0
   name               = var.tenant == "" ? "ingress-external-custom-${var.account_id}" : "${var.tenant}-ingress-external-custom-${var.account_id}"
   internal           = false
   load_balancer_type = "application"
-  security_groups    = [aws_security_group.alb_sg[0].id]
+  security_groups    = [aws_security_group.alb_sg.id]
   subnets            = local.public_subnet_ids
 
   drop_invalid_header_fields = true
@@ -70,10 +132,9 @@ resource "aws_lb" "tenant_alb" {
 }
 
 ############################
-# Target Groups (conditional)
+# Target Groups
 ############################
 resource "aws_lb_target_group" "tenant_target_group" {
-  count            = var.external_ingress ? 1 : 0
   name             = var.tenant == "" ? "ingress-custom-${var.account_id}-tg" : "${var.tenant}-ingress-custom-${var.account_id}-tg"
   port             = 443
   protocol         = "HTTPS"
@@ -95,7 +156,6 @@ resource "aws_lb_target_group" "tenant_target_group" {
 }
 
 resource "aws_lb_target_group" "tenant_target_group_http2" {
-  count            = var.external_ingress ? 1 : 0
   name             = var.tenant == "" ? "ingress-custom-${var.account_id}-h2-tg" : "${var.tenant}-ingress-custom-${var.account_id}-h2-tg"
   port             = 443
   protocol         = "HTTPS"
@@ -117,30 +177,29 @@ resource "aws_lb_target_group" "tenant_target_group_http2" {
 }
 
 ############################
-# Register NLB IPs (conditional)
+# Register NLB IPs
 ############################
 resource "aws_lb_target_group_attachment" "tg_attachment" {
-  for_each          = var.external_ingress ? toset(var.workload_external_nlb_ips) : []
-  target_group_arn  = aws_lb_target_group.tenant_target_group[0].arn
+  for_each          = toset(var.workload_external_nlb_ips)
+  target_group_arn  = aws_lb_target_group.tenant_target_group.arn
   target_id         = each.value
   port              = 443
   availability_zone = "all"
 }
 
 resource "aws_lb_target_group_attachment" "tg_attachment_http2" {
-  for_each          = var.external_ingress ? toset(var.workload_external_nlb_ips) : []
-  target_group_arn  = aws_lb_target_group.tenant_target_group_http2[0].arn
+  for_each          = toset(var.workload_external_nlb_ips)
+  target_group_arn  = aws_lb_target_group.tenant_target_group_http2.arn
   target_id         = each.value
   port              = 443
   availability_zone = "all"
 }
 
 ############################
-# HTTPS Listener (conditional)
+# HTTPS Listener
 ############################
 resource "aws_lb_listener" "https_listener" {
-  count             = var.external_ingress ? 1 : 0
-  load_balancer_arn = aws_lb.tenant_alb[0].arn
+  load_balancer_arn = aws_lb.tenant_alb.arn
   port              = 443
   protocol          = "HTTPS"
   ssl_policy        = "ELBSecurityPolicy-TLS13-1-2-2021-06"
@@ -148,7 +207,7 @@ resource "aws_lb_listener" "https_listener" {
 
   default_action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.tenant_target_group_http2[0].arn
+    target_group_arn = aws_lb_target_group.tenant_target_group_http2.arn
   }
 
   tags = var.tags
@@ -158,9 +217,9 @@ resource "aws_lb_listener" "https_listener" {
 # Custom Listener Rules
 ############################
 resource "aws_lb_listener_rule" "custom_profile_rules" {
-  for_each = var.external_ingress ? local.custom_listener_rules : {}
+  for_each = local.custom_listener_rules
 
-  listener_arn = aws_lb_listener.https_listener[0].arn
+  listener_arn = aws_lb_listener.https_listener.arn
   priority     = each.value.priority
 
   dynamic "action" {
@@ -186,7 +245,7 @@ resource "aws_lb_listener_rule" "custom_profile_rules" {
 
   action {
     type             = "forward"
-    target_group_arn = each.value.target_group_type == "http1" ? aws_lb_target_group.tenant_target_group[0].arn : aws_lb_target_group.tenant_target_group_http2[0].arn
+    target_group_arn = each.value.target_group_type == "http1" ? aws_lb_target_group.tenant_target_group.arn : aws_lb_target_group.tenant_target_group_http2.arn
   }
 
   dynamic "condition" {
@@ -257,10 +316,9 @@ resource "aws_lb_listener_rule" "custom_profile_rules" {
 }
 
 ############################
-# Optional wait (conditional)
+# Optional wait
 ############################
 resource "time_sleep" "wait_60_seconds" {
-  count           = var.external_ingress ? 1 : 0
   depends_on      = [aws_lb.tenant_alb]
   create_duration = "60s"
 }
