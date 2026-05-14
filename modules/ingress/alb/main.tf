@@ -226,10 +226,34 @@ resource "aws_lb_listener_rule" "custom_profile_rules" {
     }
   }
 
+  dynamic "condition" {
+    for_each = length(try(each.value.source_ips, [])) > 0 ? [each.value.source_ips] : []
+    content {
+      source_ip {
+        values = condition.value
+      }
+    }
+  }
+
+  dynamic "condition" {
+    for_each = try(each.value.http_header_conditions, [])
+    content {
+      http_header {
+        http_header_name = condition.value.name
+        values           = condition.value.values
+      }
+    }
+  }
+
   lifecycle {
     precondition {
-      condition     = length(each.value.host_headers) > 0 || length(each.value.path_patterns) > 0
-      error_message = "Each custom_listener_rules entry must define at least one condition via host_headers or path_patterns."
+      condition = (
+        length(each.value.host_headers) > 0 ||
+        length(each.value.path_patterns) > 0 ||
+        length(try(each.value.source_ips, [])) > 0 ||
+        length(try(each.value.http_header_conditions, [])) > 0
+      )
+      error_message = "Each custom_listener_rules entry must define at least one condition via host_headers, path_patterns, source_ips, or http_header_conditions."
     }
     precondition {
       condition     = contains(["http1", "http2"], each.value.target_group_type)

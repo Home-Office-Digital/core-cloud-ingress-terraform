@@ -66,6 +66,11 @@ variable "custom_listener_rules" {
     target_group_type = optional(string, "http2")
     host_headers      = optional(list(string), [])
     path_patterns     = optional(list(string), [])
+    source_ips        = optional(list(string), [])
+    http_header_conditions = optional(list(object({
+      name   = string
+      values = list(string)
+    })), [])
     oidc = optional(object({
       authorization_endpoint              = string
       client_id                           = string
