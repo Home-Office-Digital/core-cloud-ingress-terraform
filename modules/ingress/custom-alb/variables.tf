@@ -53,7 +53,7 @@ variable "acm_certificate_arn" {
 }
 
 variable "waf_web_acl_arn" {
-  description = "Optional existing REGIONAL WAFv2 Web ACL ARN to associate with the custom ALB. If empty, a managed Web ACL is created in this module."
+  description = "Deprecated. Custom ALB now always creates and associates a module-managed REGIONAL WAFv2 Web ACL for compliance controls."
   type        = string
   default     = ""
 }

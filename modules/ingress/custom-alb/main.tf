@@ -132,8 +132,6 @@ resource "aws_lb" "tenant_alb" {
 }
 
 resource "aws_wafv2_web_acl" "tenant_alb" {
-  count = var.waf_web_acl_arn == "" ? 1 : 0
-
   name  = var.tenant == "" ? "ingress-external-custom-${var.account_id}-waf" : "${var.tenant}-ingress-external-custom-${var.account_id}-waf"
   scope = "REGIONAL"
 
@@ -196,16 +194,10 @@ resource "aws_wafv2_web_acl" "tenant_alb" {
 
 resource "aws_wafv2_web_acl_association" "tenant_alb" {
   resource_arn = aws_lb.tenant_alb.arn
-  web_acl_arn = (
-    var.waf_web_acl_arn != ""
-    ? var.waf_web_acl_arn
-    : aws_wafv2_web_acl.tenant_alb[0].arn
-  )
+  web_acl_arn  = aws_wafv2_web_acl.tenant_alb.arn
 }
 
 resource "aws_cloudwatch_log_group" "tenant_alb_waf" {
-  count = var.waf_web_acl_arn == "" ? 1 : 0
-
   name              = var.tenant == "" ? "aws-waf-logs-ingress-external-custom-${var.account_id}" : "aws-waf-logs-${var.tenant}-ingress-external-custom-${var.account_id}"
   retention_in_days = var.waf_log_retention_in_days
   kms_key_id        = var.waf_log_kms_key_id != "" ? var.waf_log_kms_key_id : data.aws_kms_alias.cloudwatch_logs.target_key_arn
@@ -213,10 +205,8 @@ resource "aws_cloudwatch_log_group" "tenant_alb_waf" {
 }
 
 resource "aws_wafv2_web_acl_logging_configuration" "tenant_alb" {
-  count = var.waf_web_acl_arn == "" ? 1 : 0
-
-  log_destination_configs = [aws_cloudwatch_log_group.tenant_alb_waf[0].arn]
-  resource_arn            = aws_wafv2_web_acl.tenant_alb[0].arn
+  log_destination_configs = [aws_cloudwatch_log_group.tenant_alb_waf.arn]
+  resource_arn            = aws_wafv2_web_acl.tenant_alb.arn
 }
 
 ############################
