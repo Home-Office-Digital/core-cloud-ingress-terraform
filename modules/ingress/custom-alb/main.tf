@@ -121,7 +121,7 @@ resource "aws_lb" "tenant_alb" {
   subnets            = local.public_subnet_ids
 
   drop_invalid_header_fields = true
-  enable_deletion_protection = false
+  enable_deletion_protection = true
   tags                       = var.tags
 
   access_logs {
@@ -129,6 +129,56 @@ resource "aws_lb" "tenant_alb" {
     bucket  = "aws-accelerator-elb-access-logs-905418430070-eu-west-2"
     prefix  = var.tenant == "" ? "${var.perimeter_account_id}/elb-ingress-external-custom-${var.account_id}" : "${var.perimeter_account_id}/elb-${var.tenant}-ingress-external-custom-${var.account_id}"
   }
+}
+
+resource "aws_wafv2_web_acl" "tenant_alb" {
+  count = var.waf_web_acl_arn == "" ? 1 : 0
+
+  name  = var.tenant == "" ? "ingress-external-custom-${var.account_id}-waf" : "${var.tenant}-ingress-external-custom-${var.account_id}-waf"
+  scope = "REGIONAL"
+
+  default_action {
+    allow {}
+  }
+
+  rule {
+    name     = "AWSManagedRulesCommonRuleSet"
+    priority = 10
+
+    override_action {
+      none {}
+    }
+
+    statement {
+      managed_rule_group_statement {
+        name        = "AWSManagedRulesCommonRuleSet"
+        vendor_name = "AWS"
+      }
+    }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "AWSManagedRulesCommonRuleSet"
+      sampled_requests_enabled   = true
+    }
+  }
+
+  visibility_config {
+    cloudwatch_metrics_enabled = true
+    metric_name                = var.tenant == "" ? "ingress-external-custom-${var.account_id}-waf" : "${var.tenant}-ingress-external-custom-${var.account_id}-waf"
+    sampled_requests_enabled   = true
+  }
+
+  tags = var.tags
+}
+
+resource "aws_wafv2_web_acl_association" "tenant_alb" {
+  resource_arn = aws_lb.tenant_alb.arn
+  web_acl_arn = (
+    var.waf_web_acl_arn != ""
+    ? var.waf_web_acl_arn
+    : aws_wafv2_web_acl.tenant_alb[0].arn
+  )
 }
 
 ############################

@@ -52,6 +52,12 @@ variable "acm_certificate_arn" {
   type        = string
 }
 
+variable "waf_web_acl_arn" {
+  description = "Optional existing REGIONAL WAFv2 Web ACL ARN to associate with the custom ALB. If empty, a managed Web ACL is created in this module."
+  type        = string
+  default     = ""
+}
+
 variable "custom_listener_rules" {
   description = "Custom listener rules from accounts config. Supports source-ip, path-pattern, host-header, http-header, and optional OIDC authentication."
   type = list(object({
