@@ -58,6 +58,12 @@ variable "waf_web_acl_arn" {
   default     = ""
 }
 
+variable "waf_log_retention_in_days" {
+  description = "Retention in days for the CloudWatch Log Group used by module-created WAF Web ACL logging."
+  type        = number
+  default     = 90
+}
+
 variable "custom_listener_rules" {
   description = "Custom listener rules from accounts config. Supports source-ip, path-pattern, host-header, http-header, and optional OIDC authentication."
   type = list(object({

@@ -163,6 +163,28 @@ resource "aws_wafv2_web_acl" "tenant_alb" {
     }
   }
 
+  rule {
+    name     = "AWSManagedRulesKnownBadInputsRuleSet"
+    priority = 20
+
+    override_action {
+      none {}
+    }
+
+    statement {
+      managed_rule_group_statement {
+        name        = "AWSManagedRulesKnownBadInputsRuleSet"
+        vendor_name = "AWS"
+      }
+    }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "AWSManagedRulesKnownBadInputsRuleSet"
+      sampled_requests_enabled   = true
+    }
+  }
+
   visibility_config {
     cloudwatch_metrics_enabled = true
     metric_name                = var.tenant == "" ? "ingress-external-custom-${var.account_id}-waf" : "${var.tenant}-ingress-external-custom-${var.account_id}-waf"
@@ -179,6 +201,21 @@ resource "aws_wafv2_web_acl_association" "tenant_alb" {
     ? var.waf_web_acl_arn
     : aws_wafv2_web_acl.tenant_alb[0].arn
   )
+}
+
+resource "aws_cloudwatch_log_group" "tenant_alb_waf" {
+  count = var.waf_web_acl_arn == "" ? 1 : 0
+
+  name              = var.tenant == "" ? "aws-waf-logs-ingress-external-custom-${var.account_id}" : "aws-waf-logs-${var.tenant}-ingress-external-custom-${var.account_id}"
+  retention_in_days = var.waf_log_retention_in_days
+  tags              = var.tags
+}
+
+resource "aws_wafv2_web_acl_logging_configuration" "tenant_alb" {
+  count = var.waf_web_acl_arn == "" ? 1 : 0
+
+  log_destination_configs = [aws_cloudwatch_log_group.tenant_alb_waf[0].arn]
+  resource_arn            = aws_wafv2_web_acl.tenant_alb[0].arn
 }
 
 ############################
