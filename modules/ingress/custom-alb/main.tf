@@ -208,6 +208,7 @@ resource "aws_cloudwatch_log_group" "tenant_alb_waf" {
 
   name              = var.tenant == "" ? "aws-waf-logs-ingress-external-custom-${var.account_id}" : "aws-waf-logs-${var.tenant}-ingress-external-custom-${var.account_id}"
   retention_in_days = var.waf_log_retention_in_days
+  kms_key_id        = var.waf_log_kms_key_id != "" ? var.waf_log_kms_key_id : data.aws_kms_alias.cloudwatch_logs.target_key_arn
   tags              = var.tags
 }
 

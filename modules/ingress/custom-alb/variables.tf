@@ -61,7 +61,18 @@ variable "waf_web_acl_arn" {
 variable "waf_log_retention_in_days" {
   description = "Retention in days for the CloudWatch Log Group used by module-created WAF Web ACL logging."
   type        = number
-  default     = 90
+  default     = 365
+
+  validation {
+    condition     = var.waf_log_retention_in_days >= 365
+    error_message = "waf_log_retention_in_days must be at least 365 days."
+  }
+}
+
+variable "waf_log_kms_key_id" {
+  description = "Optional KMS key ARN for WAF CloudWatch logs encryption. If not set, alias/aws/logs is used."
+  type        = string
+  default     = ""
 }
 
 variable "custom_listener_rules" {
