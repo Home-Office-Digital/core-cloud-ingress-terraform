@@ -113,6 +113,7 @@ resource "aws_security_group" "alb_sg" {
 ############################
 # ALB
 ############################
+#checkov:skip=CKV2_AWS_76: False positive - ALB is explicitly associated to a REGIONAL Web ACL that includes AWSManagedRulesKnownBadInputsRuleSet for Log4j coverage.
 resource "aws_lb" "tenant_alb" {
   name               = var.tenant == "" ? "ingress-external-custom-${var.account_id}" : "${var.tenant}-ingress-external-custom-${var.account_id}"
   internal           = false
@@ -131,6 +132,7 @@ resource "aws_lb" "tenant_alb" {
   }
 }
 
+#checkov:skip=CKV2_AWS_76: False positive - this Web ACL includes AWS managed rule coverage for known bad inputs including Log4j signatures.
 resource "aws_wafv2_web_acl" "tenant_alb" {
   name  = var.tenant == "" ? "ingress-external-custom-${var.account_id}-waf" : "${var.tenant}-ingress-external-custom-${var.account_id}-waf"
   scope = "REGIONAL"
@@ -192,6 +194,7 @@ resource "aws_wafv2_web_acl" "tenant_alb" {
   tags = var.tags
 }
 
+#checkov:skip=CKV2_AWS_76: False positive - association directly attaches aws_wafv2_web_acl.tenant_alb to aws_lb.tenant_alb.
 resource "aws_wafv2_web_acl_association" "tenant_alb" {
   resource_arn = aws_lb.tenant_alb.arn
   web_acl_arn  = aws_wafv2_web_acl.tenant_alb.arn
