@@ -4,6 +4,12 @@
 locals {
   vpc_id            = data.aws_vpcs.filtered_vpcs.ids[0]
   public_subnet_ids = data.aws_subnets.filtered_subnets.ids
+  tenant_slug       = lower(regexreplace(var.tenant, "[^a-z0-9-]", ""))
+  tenant_prefix     = local.tenant_slug != "" ? substr(local.tenant_slug, 0, 10) : "tenant"
+  name_hash         = substr(md5("${var.tenant}-${var.account_id}"), 0, 8)
+  alb_name          = var.tenant == "" ? "ingc-alb-${local.name_hash}" : "${local.tenant_prefix}-alb-${local.name_hash}"
+  tg_http1_name     = var.tenant == "" ? "ingc-tg1-${local.name_hash}" : "${local.tenant_prefix}-tg1-${local.name_hash}"
+  tg_http2_name     = var.tenant == "" ? "ingc-tg2-${local.name_hash}" : "${local.tenant_prefix}-tg2-${local.name_hash}"
 
   raw_custom_listener_rules = {
     for rule in var.custom_listener_rules : rule.ruleName => rule
@@ -115,7 +121,7 @@ resource "aws_security_group" "alb_sg" {
 ############################
 #checkov:skip=CKV2_AWS_76: False positive - ALB is explicitly associated to a REGIONAL Web ACL that includes AWSManagedRulesKnownBadInputsRuleSet for Log4j coverage.
 resource "aws_lb" "tenant_alb" {
-  name               = var.tenant == "" ? "ingress-external-custom-${var.account_id}" : "${var.tenant}-ingress-external-custom-${var.account_id}"
+  name               = local.alb_name
   internal           = false
   load_balancer_type = "application"
   security_groups    = [aws_security_group.alb_sg.id]
@@ -203,7 +209,7 @@ resource "aws_wafv2_web_acl_association" "tenant_alb" {
 resource "aws_cloudwatch_log_group" "tenant_alb_waf" {
   name              = var.tenant == "" ? "aws-waf-logs-ingress-external-custom-${var.account_id}" : "aws-waf-logs-${var.tenant}-ingress-external-custom-${var.account_id}"
   retention_in_days = var.waf_log_retention_in_days
-  kms_key_id        = var.waf_log_kms_key_id != "" ? var.waf_log_kms_key_id : data.aws_kms_alias.cloudwatch_logs.target_key_arn
+  kms_key_id        = var.waf_log_kms_key_id != "" ? var.waf_log_kms_key_id : null
   tags              = var.tags
 }
 
@@ -216,7 +222,7 @@ resource "aws_wafv2_web_acl_logging_configuration" "tenant_alb" {
 # Target Groups
 ############################
 resource "aws_lb_target_group" "tenant_target_group" {
-  name             = var.tenant == "" ? "ingress-custom-${var.account_id}-tg" : "${var.tenant}-ingress-custom-${var.account_id}-tg"
+  name             = local.tg_http1_name
   port             = 443
   protocol         = "HTTPS"
   protocol_version = "HTTP1"
@@ -237,7 +243,7 @@ resource "aws_lb_target_group" "tenant_target_group" {
 }
 
 resource "aws_lb_target_group" "tenant_target_group_http2" {
-  name             = var.tenant == "" ? "ingress-custom-${var.account_id}-h2-tg" : "${var.tenant}-ingress-custom-${var.account_id}-h2-tg"
+  name             = local.tg_http2_name
   port             = 443
   protocol         = "HTTPS"
   protocol_version = "HTTP2"

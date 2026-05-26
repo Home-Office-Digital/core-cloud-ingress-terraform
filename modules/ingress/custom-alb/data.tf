@@ -22,11 +22,6 @@ data "aws_subnets" "filtered_subnets" {
 # Hosted zone ID used by ALB DNS names in this region
 data "aws_lb_hosted_zone_id" "main" {}
 
-# AWS-managed KMS key alias for CloudWatch Logs encryption fallback.
-data "aws_kms_alias" "cloudwatch_logs" {
-  name = "alias/aws/logs"
-}
-
 # Resolve OIDC client secrets from Secrets Manager for custom listener rules.
 data "aws_secretsmanager_secret_version" "oidc_client_secrets" {
   for_each = {
