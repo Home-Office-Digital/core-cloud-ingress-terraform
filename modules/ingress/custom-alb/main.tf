@@ -170,8 +170,30 @@ resource "aws_wafv2_web_acl" "tenant_alb" {
   }
 
   rule {
-    name     = "AWSManagedRulesKnownBadInputsRuleSet"
+    name     = "AWSManagedRulesAnonymousIpList"
     priority = 20
+
+    override_action {
+      none {}
+    }
+
+    statement {
+      managed_rule_group_statement {
+        name        = "AWSManagedRulesAnonymousIpList"
+        vendor_name = "AWS"
+      }
+    }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "AWSManagedRulesAnonymousIpList"
+      sampled_requests_enabled   = true
+    }
+  }
+
+  rule {
+    name     = "AWSManagedRulesKnownBadInputsRuleSet"
+    priority = 30
 
     override_action {
       none {}
