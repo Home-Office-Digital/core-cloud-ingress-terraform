@@ -4,8 +4,7 @@
 locals {
   vpc_id            = data.aws_vpcs.filtered_vpcs.ids[0]
   public_subnet_ids = data.aws_subnets.filtered_subnets.ids
-  tenant_slug       = lower(regexreplace(var.tenant, "[^a-z0-9-]", ""))
-  tenant_prefix     = local.tenant_slug != "" ? substr(local.tenant_slug, 0, 10) : "tenant"
+  tenant_prefix     = var.tenant != "" ? substr(lower(var.tenant), 0, 10) : "tenant"
   name_hash         = substr(md5("${var.tenant}-${var.account_id}"), 0, 8)
   alb_name          = var.tenant == "" ? "ingc-alb-${local.name_hash}" : "${local.tenant_prefix}-alb-${local.name_hash}"
   tg_http1_name     = var.tenant == "" ? "ingc-tg1-${local.name_hash}" : "${local.tenant_prefix}-tg1-${local.name_hash}"
