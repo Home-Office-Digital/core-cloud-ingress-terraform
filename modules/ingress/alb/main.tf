@@ -9,6 +9,34 @@ locals {
 ############################
 # Security Group (conditional)
 ############################
+# resource "aws_security_group" "alb_sg" {
+#   count       = var.external_ingress ? 1 : 0
+#   name_prefix = var.tenant == "" ? "ingress-external-${var.account_id}-" : "${var.tenant}-external-${var.account_id}-"
+#   description = "Allow inbound traffic to ALB"
+#   vpc_id      = local.vpc_id
+#   tags        = var.tags
+
+#   ingress {
+#     description = "Allow traffic from Internet"
+#     from_port   = 443
+#     to_port     = 443
+#     protocol    = "tcp"
+#     cidr_blocks = ["0.0.0.0/0"]
+#   }
+
+#   egress {
+#     description = "Allow traffic from ALB to NLBs in workload accounts"
+#     from_port   = 0
+#     to_port     = 0
+#     protocol    = "-1"
+#     cidr_blocks = ["10.0.0.0/8", "172.16.0.0/16"]
+#   }
+# }
+
+
+############################
+# Security Group (conditional)
+############################
 resource "aws_security_group" "alb_sg" {
   count       = var.external_ingress ? 1 : 0
   name_prefix = var.tenant == "" ? "ingress-external-${var.account_id}-" : "${var.tenant}-external-${var.account_id}-"
@@ -16,12 +44,26 @@ resource "aws_security_group" "alb_sg" {
   vpc_id      = local.vpc_id
   tags        = var.tags
 
-  ingress {
-    description = "Allow traffic from Internet"
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+  dynamic "ingress" {
+    for_each = var.entra_only_access ? [] : [1]
+    content {
+      description = "Allow traffic from Internet"
+      from_port   = 443
+      to_port     = 443
+      protocol    = "tcp"
+      cidr_blocks = ["0.0.0.0/0"]
+    }
+  }
+
+  dynamic "ingress" {
+    for_each = var.entra_only_access ? [1] : []
+    content {
+      description     = "Allow traffic from Entra IP ranges only"
+      from_port       = 443
+      to_port         = 443
+      protocol        = "tcp"
+      prefix_list_ids = var.entra_prefix_list_ids
+    }
   }
 
   egress {
@@ -32,6 +74,8 @@ resource "aws_security_group" "alb_sg" {
     cidr_blocks = ["10.0.0.0/8", "172.16.0.0/16"]
   }
 }
+
+
 
 ############################
 # ALB (conditional)
