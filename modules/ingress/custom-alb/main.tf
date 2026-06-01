@@ -304,7 +304,7 @@ resource "aws_lb_target_group" "tenant_target_group_http2" {
 # Register NLB IPs
 ############################
 resource "aws_lb_target_group_attachment" "tg_attachment" {
-  for_each          = var.external_ingress ? toset(var.workload_external_nlb_ips) : []
+  for_each          = var.external_ingress ? toset(var.workload_external_nlb_ips) : toset([])
   target_group_arn  = aws_lb_target_group.tenant_target_group[0].arn
   target_id         = each.value
   port              = 443
@@ -312,7 +312,7 @@ resource "aws_lb_target_group_attachment" "tg_attachment" {
 }
 
 resource "aws_lb_target_group_attachment" "tg_attachment_http2" {
-  for_each          = var.external_ingress ? toset(var.workload_external_nlb_ips) : []
+  for_each          = var.external_ingress ? toset(var.workload_external_nlb_ips) : toset([])
   target_group_arn  = aws_lb_target_group.tenant_target_group_http2[0].arn
   target_id         = each.value
   port              = 443
