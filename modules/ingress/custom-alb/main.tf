@@ -58,7 +58,7 @@ locals {
           name   = condition.httpHeaderConfig.httpHeaderName
           values = condition.httpHeaderConfig.values
         }
-        if condition.field == "http-header"
+        if condition.field == "http-header" && try(condition.httpHeaderConfig, null) != null
       ]
       oidc = local.oidc_actions[rule_name] == null ? null : {
         authorization_endpoint              = local.oidc_actions[rule_name].authorizationEndpoint
