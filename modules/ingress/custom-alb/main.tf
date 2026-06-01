@@ -413,7 +413,7 @@ resource "aws_lb_listener_rule" "custom_profile_rules" {
     }
     precondition {
       condition     = contains(["http1", "http2"], each.value.target_group_type)
-      error_message = "custom_listener_rules.target_group_type must be either http1 or http2."
+      error_message = "Each custom_listener_rules entry must include exactly one forward action whose targetGroupName indicates http1 or http2 (e.g., contains 'http1' or 'http2')."
     }
     precondition {
       condition     = each.value.oidc == null || each.value.target_group_type == "http1"
