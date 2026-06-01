@@ -93,6 +93,7 @@ locals {
 # Security Group
 ############################
 resource "aws_security_group" "alb_sg" {
+  count       = var.external_ingress ? 1 : 0
   name_prefix = var.tenant == "" ? "ingress-external-custom-${var.account_id}-" : "${var.tenant}-ingress-external-custom-${var.account_id}-"
   description = "Allow inbound traffic to ALB"
   vpc_id      = local.vpc_id
@@ -128,10 +129,11 @@ resource "aws_security_group" "alb_sg" {
 ############################
 #checkov:skip=CKV2_AWS_76: False positive - ALB is explicitly associated to a REGIONAL Web ACL that includes AWSManagedRulesKnownBadInputsRuleSet for Log4j coverage.
 resource "aws_lb" "tenant_alb" {
+  count              = var.external_ingress ? 1 : 0
   name               = local.alb_name
   internal           = false
   load_balancer_type = "application"
-  security_groups    = [aws_security_group.alb_sg.id]
+  security_groups    = [aws_security_group.alb_sg[0].id]
   subnets            = local.public_subnet_ids
 
   drop_invalid_header_fields = true
@@ -147,6 +149,7 @@ resource "aws_lb" "tenant_alb" {
 
 #checkov:skip=CKV2_AWS_76: False positive - this Web ACL includes AWS managed rule coverage for known bad inputs including Log4j signatures.
 resource "aws_wafv2_web_acl" "tenant_alb" {
+  count = var.external_ingress ? 1 : 0
   name  = var.tenant == "" ? "ingress-external-custom-${var.account_id}-waf" : "${var.tenant}-ingress-external-custom-${var.account_id}-waf"
   scope = "REGIONAL"
 
@@ -231,11 +234,13 @@ resource "aws_wafv2_web_acl" "tenant_alb" {
 
 #checkov:skip=CKV2_AWS_76: False positive - association directly attaches aws_wafv2_web_acl.tenant_alb to aws_lb.tenant_alb.
 resource "aws_wafv2_web_acl_association" "tenant_alb" {
-  resource_arn = aws_lb.tenant_alb.arn
-  web_acl_arn  = aws_wafv2_web_acl.tenant_alb.arn
+  count        = var.external_ingress ? 1 : 0
+  resource_arn = aws_lb.tenant_alb[0].arn
+  web_acl_arn  = aws_wafv2_web_acl.tenant_alb[0].arn
 }
 
 resource "aws_cloudwatch_log_group" "tenant_alb_waf" {
+  count             = var.external_ingress ? 1 : 0
   name              = var.tenant == "" ? "aws-waf-logs-ingress-external-custom-${var.account_id}" : "aws-waf-logs-${var.tenant}-ingress-external-custom-${var.account_id}"
   retention_in_days = var.waf_log_retention_in_days
   kms_key_id        = var.waf_log_kms_key_id != "" ? var.waf_log_kms_key_id : null
@@ -243,14 +248,16 @@ resource "aws_cloudwatch_log_group" "tenant_alb_waf" {
 }
 
 resource "aws_wafv2_web_acl_logging_configuration" "tenant_alb" {
-  log_destination_configs = [aws_cloudwatch_log_group.tenant_alb_waf.arn]
-  resource_arn            = aws_wafv2_web_acl.tenant_alb.arn
+  count                   = var.external_ingress ? 1 : 0
+  log_destination_configs = [aws_cloudwatch_log_group.tenant_alb_waf[0].arn]
+  resource_arn            = aws_wafv2_web_acl.tenant_alb[0].arn
 }
 
 ############################
 # Target Groups
 ############################
 resource "aws_lb_target_group" "tenant_target_group" {
+  count            = var.external_ingress ? 1 : 0
   name             = local.tg_http1_name
   port             = 443
   protocol         = "HTTPS"
@@ -272,6 +279,7 @@ resource "aws_lb_target_group" "tenant_target_group" {
 }
 
 resource "aws_lb_target_group" "tenant_target_group_http2" {
+  count            = var.external_ingress ? 1 : 0
   name             = local.tg_http2_name
   port             = 443
   protocol         = "HTTPS"
@@ -296,16 +304,16 @@ resource "aws_lb_target_group" "tenant_target_group_http2" {
 # Register NLB IPs
 ############################
 resource "aws_lb_target_group_attachment" "tg_attachment" {
-  for_each          = toset(var.workload_external_nlb_ips)
-  target_group_arn  = aws_lb_target_group.tenant_target_group.arn
+  for_each          = var.external_ingress ? toset(var.workload_external_nlb_ips) : []
+  target_group_arn  = aws_lb_target_group.tenant_target_group[0].arn
   target_id         = each.value
   port              = 443
   availability_zone = "all"
 }
 
 resource "aws_lb_target_group_attachment" "tg_attachment_http2" {
-  for_each          = toset(var.workload_external_nlb_ips)
-  target_group_arn  = aws_lb_target_group.tenant_target_group_http2.arn
+  for_each          = var.external_ingress ? toset(var.workload_external_nlb_ips) : []
+  target_group_arn  = aws_lb_target_group.tenant_target_group_http2[0].arn
   target_id         = each.value
   port              = 443
   availability_zone = "all"
@@ -315,7 +323,8 @@ resource "aws_lb_target_group_attachment" "tg_attachment_http2" {
 # HTTPS Listener
 ############################
 resource "aws_lb_listener" "https_listener" {
-  load_balancer_arn = aws_lb.tenant_alb.arn
+  count             = var.external_ingress ? 1 : 0
+  load_balancer_arn = aws_lb.tenant_alb[0].arn
   port              = 443
   protocol          = "HTTPS"
   ssl_policy        = "ELBSecurityPolicy-TLS13-1-2-2021-06"
@@ -323,7 +332,7 @@ resource "aws_lb_listener" "https_listener" {
 
   default_action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.tenant_target_group_http2.arn
+    target_group_arn = aws_lb_target_group.tenant_target_group_http2[0].arn
   }
 
   tags = var.tags
@@ -333,9 +342,9 @@ resource "aws_lb_listener" "https_listener" {
 # Custom Listener Rules
 ############################
 resource "aws_lb_listener_rule" "custom_profile_rules" {
-  for_each = local.custom_listener_rules
+  for_each = var.external_ingress ? local.custom_listener_rules : {}
 
-  listener_arn = aws_lb_listener.https_listener.arn
+  listener_arn = aws_lb_listener.https_listener[0].arn
   priority     = each.value.priority
 
   dynamic "action" {
@@ -361,7 +370,7 @@ resource "aws_lb_listener_rule" "custom_profile_rules" {
 
   action {
     type             = "forward"
-    target_group_arn = each.value.target_group_type == "http1" ? aws_lb_target_group.tenant_target_group.arn : aws_lb_target_group.tenant_target_group_http2.arn
+    target_group_arn = each.value.target_group_type == "http1" ? aws_lb_target_group.tenant_target_group[0].arn : aws_lb_target_group.tenant_target_group_http2[0].arn
   }
 
   dynamic "condition" {
@@ -435,6 +444,7 @@ resource "aws_lb_listener_rule" "custom_profile_rules" {
 # Optional wait
 ############################
 resource "time_sleep" "wait_60_seconds" {
+  count           = var.external_ingress ? 1 : 0
   depends_on      = [aws_lb.tenant_alb]
   create_duration = "60s"
 }
