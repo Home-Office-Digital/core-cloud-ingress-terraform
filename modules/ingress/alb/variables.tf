@@ -51,3 +51,15 @@ variable "acm_certificate_arn" {
   description = "ACM Cert ARN"
   type        = string
 }
+
+variable "entra_only_access" {
+  description = "When true, restricts ALB ingress to Entra IP ranges via prefix list instead of open internet"
+  type        = bool
+  default     = false
+}
+
+variable "entra_prefix_list_ids" {
+  description = "Prefix list IDs to allow when entra_only_access is true — e.g. the managed prefix lists from the entra-prefix-list-sync Lambda"
+  type        = list(string)
+  default     = []
+}
