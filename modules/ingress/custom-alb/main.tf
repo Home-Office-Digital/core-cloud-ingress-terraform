@@ -114,7 +114,7 @@ resource "aws_security_group" "alb_sg" {
     protocol    = "-1"
     cidr_blocks = ["10.0.0.0/8", "172.16.0.0/16"]
   }
-  
+
   egress {
     description = "Allow traffic to Internet/NLB"
     from_port   = 443
