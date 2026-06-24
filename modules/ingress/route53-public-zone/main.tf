@@ -1,6 +1,6 @@
 # Create Route53 A Record Alias for External ALB (only when external_ingress = true)
-#checkov:skip=CKV2_AWS_23: Route53 A Record has Attached Resource
 resource "aws_route53_record" "external_alb" {
+  #checkov:skip=CKV2_AWS_23: Route53 A Record has Attached Resource
   count = (var.external_ingress && var.alb_dns_ready) ? 1 : 0
 
   zone_id = data.aws_route53_zone.selected.zone_id
