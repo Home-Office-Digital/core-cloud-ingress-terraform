@@ -16,7 +16,6 @@ Current test files:
 - modules/ingress/nlb-ips/tests/nlb-ips.tftest.hcl
 - modules/ingress/nlb-isolated/tests/nlb-isolated.tftest.hcl
 - modules/ingress/private-subnets/tests/private-subnets.tftest.hcl
-- modules/ingress/route53-private-zone/tests/route53-private-zone.tftest.hcl
 - modules/ingress/route53-public-zone/tests/route53-public-zone.tftest.hcl
 
 ### Test Design

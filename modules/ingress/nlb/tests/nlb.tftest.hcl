@@ -28,6 +28,16 @@ run "nlb_plan" {
       ManagedBy   = "terraform-test"
     }
   }
+
+  assert {
+    condition     = output.vpc_id == "vpc-12345678"
+    error_message = "Expected mocked VPC id to be exposed via module output."
+  }
+
+  assert {
+    condition     = length(output.private_subnets) == 3
+    error_message = "Expected three mocked private subnet ids in output."
+  }
 }
 
 run "nlb_plan_external_ingress_enabled" {
@@ -43,5 +53,15 @@ run "nlb_plan_external_ingress_enabled" {
       Environment = "test"
       ManagedBy   = "terraform-test"
     }
+  }
+
+  assert {
+    condition     = output.vpc_id == "vpc-12345678"
+    error_message = "Expected mocked VPC id to be exposed in enabled ingress path."
+  }
+
+  assert {
+    condition     = length(output.private_subnets) == 3
+    error_message = "Expected three mocked private subnets in enabled ingress path."
   }
 }

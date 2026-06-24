@@ -28,4 +28,14 @@ run "nlb_isolated_plan" {
     }
   }
 
+  assert {
+    condition     = output.vpc_id == "vpc-12345678"
+    error_message = "Expected mocked VPC id in nlb-isolated output."
+  }
+
+  assert {
+    condition     = length(output.public_subnets) == 3
+    error_message = "Expected three mocked public subnets in nlb-isolated output."
+  }
+
 }
