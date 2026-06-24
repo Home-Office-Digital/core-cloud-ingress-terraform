@@ -53,11 +53,11 @@ jobs:
         fi
 
         modules_json="$({
-          find "$root" -mindepth 1 -maxdepth 1 -type d | while read -r module; do
-            if find "$module" -maxdepth 3 -type f -name "*.tftest.hcl" | grep -q .; then
-              echo "$module"
-            fi
-          done
+          find "$root" -type f -path "*/tests/*.tftest.hcl" -print \
+            | while read -r test_file; do
+                dirname "$test_file" | sed 's#/tests$##'
+              done \
+            | sort -u
         } | jq -Rsc 'split("\n") | map(select(length > 0))')"
 
         echo "modules=${modules_json}" >> "$GITHUB_OUTPUT"
@@ -70,7 +70,7 @@ jobs:
 
         root="${{ inputs.modules_root }}"
         if [[ -d "$root" ]]; then
-          total_modules=$(find "$root" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')
+          total_modules=$(find "$root" -type f -name "main.tf" -exec dirname {} \; | sort -u | wc -l | tr -d ' ')
         else
           total_modules=0
         fi
