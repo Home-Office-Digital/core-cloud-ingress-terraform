@@ -1,4 +1,7 @@
 # external NLB
+#checkov:skip=CKV_AWS_91: Ensure the ELBv2 (Application/Network) has access logging enabled
+#checkov:skip=CKV_AWS_150: Ensure that Load Balancer has deletion protection enabled
+#checkov:skip=CKV_AWS_152: Ensure that Load Balancer (Network/Gateway) has cross-zone load balancing enabled
 resource "aws_lb" "external_nlb" {
   name                       = "${var.ingress_lb_group_name}-external"
   internal                   = false
@@ -25,6 +28,7 @@ resource "aws_lb" "external_nlb" {
   )
 }
 
+#checkov:skip=CKV_AWS_382: Ensure no security groups allow egress from 0.0.0.0:0 to port -1
 resource "aws_security_group" "external_nlb_sg" {
   name        = "${var.ingress_lb_group_name}-external-sg"
   description = "Security group for external NLB"

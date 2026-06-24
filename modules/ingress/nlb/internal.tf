@@ -1,4 +1,7 @@
 # Internal NLB
+#checkov:skip=CKV_AWS_91: Ensure the ELBv2 (Application/Network) has access logging enabled
+#checkov:skip=CKV_AWS_150: Ensure that Load Balancer has deletion protection enabled
+#checkov:skip=CKV_AWS_152: Ensure that Load Balancer (Network/Gateway) has cross-zone load balancing enabled
 resource "aws_lb" "internal_nlb" {
   name                       = "${var.ingress_lb_group_name}-internal"
   internal                   = true

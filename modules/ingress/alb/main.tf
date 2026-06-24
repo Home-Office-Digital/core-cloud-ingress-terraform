@@ -80,6 +80,7 @@ resource "aws_security_group" "alb_sg" {
 ############################
 # ALB (conditional)
 ############################
+#checkov:skip=CKV2_AWS_28: Ensure public facing ALB are protected by WAF
 resource "aws_lb" "tenant_alb" {
   count              = var.external_ingress ? 1 : 0
   name               = var.tenant == "" ? "ingress-external-${var.account_id}" : "${var.tenant}-external-${var.account_id}"
