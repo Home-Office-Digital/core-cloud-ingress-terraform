@@ -26,6 +26,12 @@ variable "tenant" {
   type        = string
 }
 
+variable "app_name" {
+  description = "Optional application name to use in resource naming; falls back to tenant when unset"
+  type        = string
+  default     = ""
+}
+
 variable "account_id" {
   description = "AWS Account ID"
   type        = string

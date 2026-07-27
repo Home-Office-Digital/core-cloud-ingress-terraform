@@ -4,11 +4,13 @@
 locals {
   vpc_id            = data.aws_vpcs.filtered_vpcs.ids[0]
   public_subnet_ids = data.aws_subnets.filtered_subnets.ids
-  tenant_prefix     = var.tenant != "" ? substr(lower(var.tenant), 0, 10) : "tenant"
-  name_hash         = substr(md5("${var.tenant}-${var.account_id}"), 0, 8)
-  alb_name          = var.tenant == "" ? "ingc-alb-${local.name_hash}" : "${local.tenant_prefix}-alb-${local.name_hash}"
-  tg_http1_name     = var.tenant == "" ? "ingc-tg1-${local.name_hash}" : "${local.tenant_prefix}-tg1-${local.name_hash}"
-  tg_http2_name     = var.tenant == "" ? "ingc-tg2-${local.name_hash}" : "${local.tenant_prefix}-tg2-${local.name_hash}"
+  name_seed         = trimspace(var.app_name) != "" ? var.app_name : (var.tenant != "" ? var.tenant : "ingress")
+  name_slug_raw     = trim(regexreplace(lower(local.name_seed), "[^a-z0-9-]", "-"), "-")
+  # Keep ALB/TG names within 32 chars: 13 + "-ext-" + 12 (+ "-1"/"-2" for TGs).
+  name_part         = local.name_slug_raw != "" ? substr(local.name_slug_raw, 0, 13) : "ingress"
+  alb_name          = "${local.name_part}-ext-${var.account_id}"
+  tg_http1_name     = "${local.name_part}-ext-${var.account_id}-1"
+  tg_http2_name     = "${local.name_part}-ext-${var.account_id}-2"
 
   raw_custom_listener_rules = {
     for rule in var.custom_listener_rules : rule.ruleName => rule
@@ -94,7 +96,7 @@ locals {
 ############################
 resource "aws_security_group" "alb_sg" {
   count       = var.external_ingress ? 1 : 0
-  name_prefix = var.tenant == "" ? "ingress-external-custom-${var.account_id}-" : "${var.tenant}-ingress-external-custom-${var.account_id}-"
+  name_prefix = "${local.name_part}-ext-${var.account_id}-"
   description = "Allow inbound traffic to ALB"
   vpc_id      = local.vpc_id
   tags        = var.tags
@@ -143,14 +145,14 @@ resource "aws_lb" "tenant_alb" {
   access_logs {
     enabled = true
     bucket  = "aws-accelerator-elb-access-logs-905418430070-eu-west-2"
-    prefix  = var.tenant == "" ? "${var.perimeter_account_id}/elb-ingress-external-custom-${var.account_id}" : "${var.perimeter_account_id}/elb-${var.tenant}-ingress-external-custom-${var.account_id}"
+    prefix  = "${var.perimeter_account_id}/elb-${local.name_part}-ext-${var.account_id}"
   }
 }
 
 #checkov:skip=CKV2_AWS_76: False positive - this Web ACL includes AWS managed rule coverage for known bad inputs including Log4j signatures.
 resource "aws_wafv2_web_acl" "tenant_alb" {
   count = var.external_ingress ? 1 : 0
-  name  = var.tenant == "" ? "ingress-external-custom-${var.account_id}-waf" : "${var.tenant}-ingress-external-custom-${var.account_id}-waf"
+  name  = "${local.name_part}-ext-${var.account_id}-waf"
   scope = "REGIONAL"
 
   default_action {
@@ -225,7 +227,7 @@ resource "aws_wafv2_web_acl" "tenant_alb" {
 
   visibility_config {
     cloudwatch_metrics_enabled = true
-    metric_name                = var.tenant == "" ? "ingress-external-custom-${var.account_id}-waf" : "${var.tenant}-ingress-external-custom-${var.account_id}-waf"
+    metric_name                = "${local.name_part}-ext-${var.account_id}-waf"
     sampled_requests_enabled   = true
   }
 
@@ -241,7 +243,7 @@ resource "aws_wafv2_web_acl_association" "tenant_alb" {
 
 resource "aws_cloudwatch_log_group" "tenant_alb_waf" {
   count             = var.external_ingress ? 1 : 0
-  name              = var.tenant == "" ? "aws-waf-logs-ingress-external-custom-${var.account_id}" : "aws-waf-logs-${var.tenant}-ingress-external-custom-${var.account_id}"
+  name              = "aws-waf-logs-${local.name_part}-ext-${var.account_id}"
   retention_in_days = var.waf_log_retention_in_days
   kms_key_id        = var.waf_log_kms_key_id != "" ? var.waf_log_kms_key_id : null
   tags              = var.tags
