@@ -5,7 +5,7 @@ locals {
   vpc_id            = data.aws_vpcs.filtered_vpcs.ids[0]
   public_subnet_ids = data.aws_subnets.filtered_subnets.ids
   name_seed         = trimspace(var.app_name) != "" ? var.app_name : (var.tenant != "" ? var.tenant : "ingress")
-  name_slug_raw     = trim(regexreplace(lower(local.name_seed), "[^a-z0-9-]", "-"), "-")
+  name_slug_raw     = trim(replace(lower(local.name_seed), "/[^a-z0-9-]/", "-"), "-")
   # Keep ALB/TG names within 32 chars: 13 + "-ext-" + 12 (+ "-1"/"-2" for TGs).
   name_part         = local.name_slug_raw != "" ? substr(local.name_slug_raw, 0, 13) : "ingress"
   alb_name          = "${local.name_part}-ext-${var.account_id}"
