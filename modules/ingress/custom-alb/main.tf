@@ -11,6 +11,12 @@ locals {
   alb_name          = "${local.name_part}-ext-${var.account_id}"
   tg_http1_name     = "${local.name_part}-ext-${var.account_id}-1"
   tg_http2_name     = "${local.name_part}-ext-${var.account_id}-2"
+  required_alb_tags = {
+    "fms-managed"  = "true"
+    "waf:selector" = "default_include"
+    "waf:slot"     = "alb-external-blue"
+  }
+  alb_effective_tags = merge(var.tags, local.required_alb_tags)
 
   raw_custom_listener_rules = {
     for rule in var.custom_listener_rules : rule.ruleName => rule
@@ -140,7 +146,7 @@ resource "aws_lb" "tenant_alb" {
 
   drop_invalid_header_fields = true
   enable_deletion_protection = true
-  tags                       = var.tags
+  tags                       = local.alb_effective_tags
 
   access_logs {
     enabled = true
