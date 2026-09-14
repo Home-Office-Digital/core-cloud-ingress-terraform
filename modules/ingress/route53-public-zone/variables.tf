@@ -35,3 +35,19 @@ variable "domain_name" {
   description = "The domain name for the Route 53 record"
   type        = string
 }
+
+variable "additional_domain_names" {
+  description = "Additional domain names to create public ALB alias records for (each gets its own *.domain A record)."
+  type        = list(string)
+  default     = []
+}
+
+variable "additional_acm_records" {
+  description = "Map of additional domain name => its ACM DNS validation record (name/type/value) to create in that domain's hosted zone."
+  type = map(object({
+    name  = string
+    type  = string
+    value = string
+  }))
+  default = {}
+}

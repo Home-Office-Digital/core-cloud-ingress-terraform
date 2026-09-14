@@ -30,3 +30,40 @@ resource "aws_route53_record" "acm_validation" {
   ttl     = 300
   records = [each.value.value]
 }
+
+############################
+# Additional domain names
+# One *.domain A-record alias per additional domain (when external ingress is
+# ready), plus each additional domain's ACM validation record.
+############################
+resource "aws_route53_record" "additional_external_alb" {
+  #checkov:skip=CKV2_AWS_23: Route53 A Record has Attached Resource
+  for_each = (var.external_ingress && var.alb_dns_ready) ? try(toset(var.additional_domain_names), toset([])) : toset([])
+
+  zone_id = data.aws_route53_zone.additional[each.key].zone_id
+  name    = "*.${each.key}"
+  type    = "A"
+
+  alias {
+    name                   = var.external_alb_dns
+    zone_id                = var.alb_hosted_zone_id
+    evaluate_target_health = true
+  }
+
+  lifecycle {
+    precondition {
+      condition     = var.external_alb_dns != "" && var.alb_hosted_zone_id != ""
+      error_message = "ALB DNS name/hosted zone ID must be set when creating the external ALB record."
+    }
+  }
+}
+
+resource "aws_route53_record" "additional_acm_validation" {
+  for_each = var.additional_acm_records
+
+  zone_id = data.aws_route53_zone.additional[each.key].zone_id
+  name    = each.value.name
+  type    = each.value.type
+  ttl     = 300
+  records = [each.value.value]
+}

@@ -7,10 +7,10 @@ locals {
   name_seed         = trimspace(var.app_name) != "" ? var.app_name : (var.tenant != "" ? var.tenant : "ingress")
   name_slug_raw     = trim(replace(lower(local.name_seed), "/[^a-z0-9-]/", "-"), "-")
   # Keep ALB/TG names within 32 chars: 13 + "-ext-" + 12 (+ "-1"/"-2" for TGs).
-  name_part         = local.name_slug_raw != "" ? substr(local.name_slug_raw, 0, 13) : "ingress"
-  alb_name          = "${local.name_part}-ext-${var.account_id}"
-  tg_http1_name     = "${local.name_part}-ext-${var.account_id}-1"
-  tg_http2_name     = "${local.name_part}-ext-${var.account_id}-2"
+  name_part     = local.name_slug_raw != "" ? substr(local.name_slug_raw, 0, 13) : "ingress"
+  alb_name      = "${local.name_part}-ext-${var.account_id}"
+  tg_http1_name = "${local.name_part}-ext-${var.account_id}-1"
+  tg_http2_name = "${local.name_part}-ext-${var.account_id}-2"
   required_alb_tags = {
     "fms-managed"  = "true"
     "waf:selector" = "default_include"
@@ -344,6 +344,15 @@ resource "aws_lb_listener" "https_listener" {
   }
 
   tags = var.tags
+}
+
+############################
+# Additional certificates (SNI) for extra domains on the same HTTPS listener
+############################
+resource "aws_lb_listener_certificate" "additional" {
+  for_each        = var.external_ingress ? try(var.additional_certificate_arns, {}) : {}
+  listener_arn    = aws_lb_listener.https_listener[0].arn
+  certificate_arn = each.value
 }
 
 ############################

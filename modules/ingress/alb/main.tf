@@ -156,6 +156,15 @@ resource "aws_lb_listener" "https_listener" {
 }
 
 ############################
+# Additional certificates (SNI) for extra domains on the same HTTPS listener
+############################
+resource "aws_lb_listener_certificate" "additional" {
+  for_each        = var.external_ingress ? try(var.additional_certificate_arns, {}) : {}
+  listener_arn    = aws_lb_listener.https_listener[0].arn
+  certificate_arn = each.value
+}
+
+############################
 # Optional wait (conditional)
 ############################
 resource "time_sleep" "wait_60_seconds" {
