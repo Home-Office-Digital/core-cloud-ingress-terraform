@@ -63,3 +63,62 @@ resource "aws_acm_certificate_validation" "cert_validation" {
     create = "5m"
   }
 }
+
+############################
+# Additional domain names
+# One wildcard cert (+ validation) per additional domain, keyed by domain.
+############################
+resource "aws_acm_certificate" "additional_certs" {
+  for_each          = try(toset(var.additional_domain_names), {})
+  domain_name       = "*.${each.key}"
+  validation_method = "DNS"
+
+  lifecycle {
+    create_before_destroy = true
+  }
+
+  tags = merge(
+    var.tags, var.tenant != "" ? { "Tenant" = var.tenant } : {}
+  )
+}
+
+# CREATED ONLY FOR WORKLOAD ACCOUNTS
+# DNS validation records for each additional domain's wildcard cert.
+resource "aws_route53_record" "additional_cert_validation_records" {
+  for_each = var.workload ? {
+    for item in flatten([
+      for domain, cert in aws_acm_certificate.additional_certs : [
+        for dvo in cert.domain_validation_options : {
+          domain = domain
+          name   = dvo.resource_record_name
+          type   = dvo.resource_record_type
+          value  = dvo.resource_record_value
+        }
+      ]
+    ]) : item.domain => item
+  } : {}
+
+  zone_id = data.aws_route53_zone.additional[each.key].zone_id
+  name    = each.value.name
+  type    = each.value.type
+  records = [each.value.value]
+  ttl     = 60
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_acm_certificate_validation" "additional_cert_validation" {
+  for_each        = var.workload && var.acm_validation_enabled ? try(toset(var.additional_domain_names), toset([])) : toset([])
+  certificate_arn = aws_acm_certificate.additional_certs[each.key].arn
+  validation_record_fqdns = [
+    aws_route53_record.additional_cert_validation_records[each.key].fqdn
+  ]
+
+  depends_on = [aws_route53_record.additional_cert_validation_records]
+
+  timeouts {
+    create = "5m"
+  }
+}

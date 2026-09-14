@@ -58,6 +58,12 @@ variable "acm_certificate_arn" {
   type        = string
 }
 
+variable "additional_certificate_arns" {
+  description = "Map of additional domain name => ACM certificate ARN to attach to the HTTPS listener as extra (SNI) certificates."
+  type        = map(string)
+  default     = {}
+}
+
 variable "waf_web_acl_arn" {
   description = "Deprecated. Custom ALB now always creates and associates a module-managed REGIONAL WAFv2 Web ACL for compliance controls."
   type        = string

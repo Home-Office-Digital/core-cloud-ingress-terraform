@@ -52,6 +52,12 @@ variable "acm_certificate_arn" {
   type        = string
 }
 
+variable "additional_certificate_arns" {
+  description = "Map of additional domain name => ACM certificate ARN to attach to the HTTPS listener as extra (SNI) certificates."
+  type        = map(string)
+  default     = {}
+}
+
 variable "entra_only_access" {
   description = "When true, restricts ALB ingress to Entra IP ranges via prefix list instead of open internet"
   type        = bool

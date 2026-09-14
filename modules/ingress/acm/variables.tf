@@ -8,6 +8,12 @@ variable "domain_name" {
   type        = string
 }
 
+variable "additional_domain_names" {
+  description = "Additional domain names to issue wildcard ACM certificates for (each gets its own cert, keyed by domain)."
+  type        = list(string)
+  default     = []
+}
+
 variable "workload" {
   type    = bool
   default = false
