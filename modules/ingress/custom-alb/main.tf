@@ -11,8 +11,11 @@ locals {
   alb_name      = "${local.name_part}-ext-${var.account_id}"
   tg_http1_name = "${local.name_part}-ext-${var.account_id}-1"
   tg_http2_name = "${local.name_part}-ext-${var.account_id}-2"
+  # Tags that opt the ALB in to the dedicated alb-external-blue WAF policy.
+  # The policy matches on waf:coverage=custom, waf:selector and waf:slot together;
+  # without waf:coverage the ALB stays on the org-default policy.
   required_alb_tags = {
-    "fms-managed"  = "true"
+    "waf:coverage" = "custom"
     "waf:selector" = "default_include"
     "waf:slot"     = "alb-external-blue"
   }
