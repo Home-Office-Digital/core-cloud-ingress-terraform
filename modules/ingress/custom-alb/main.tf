@@ -15,7 +15,6 @@ locals {
   # The policy matches on waf:coverage=custom, waf:selector and waf:slot together;
   # without waf:coverage the ALB stays on the org-default policy.
   required_alb_tags = {
-    "fms-managed"  = "true"
     "waf:coverage" = "custom"
     "waf:selector" = "default_include"
     "waf:slot"     = "alb-external-blue"

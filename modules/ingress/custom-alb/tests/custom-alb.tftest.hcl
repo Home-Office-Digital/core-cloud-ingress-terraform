@@ -122,11 +122,6 @@ run "custom_alb_required_waf_tags" {
   }
 
   assert {
-    condition     = aws_lb.tenant_alb[0].tags["fms-managed"] == "true"
-    error_message = "ALB must carry fms-managed=true."
-  }
-
-  assert {
     condition     = aws_lb.tenant_alb[0].tags["Environment"] == "test"
     error_message = "Caller-supplied tags must be preserved."
   }
