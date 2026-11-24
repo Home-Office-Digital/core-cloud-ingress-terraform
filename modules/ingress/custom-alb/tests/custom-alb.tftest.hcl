@@ -82,3 +82,54 @@ run "custom_alb_plan_external_ingress_enabled" {
   }
 
 }
+run "custom_alb_no_web_acl_by_default" {
+  command = plan
+  variables {
+    external_ingress          = true
+    domain_name               = "example.com"
+    tenant                    = "test"
+    account_id                = "111111111111"
+    perimeter_account_id      = "222222222222"
+    vpc_name                  = "example-vpc"
+    public_subnet_filter      = "example-public-*"
+    acm_certificate_arn       = "arn:aws:acm:eu-west-2:111111111111:certificate/00000000-0000-0000-0000-000000000000"
+    workload_external_nlb_ips = ["10.10.1.10", "10.10.2.10", "10.10.3.10"]
+    tags = {
+      Environment = "test"
+    }
+  }
+  assert {
+    condition     = length(aws_wafv2_web_acl.tenant_alb) == 0 && length(aws_wafv2_web_acl_association.tenant_alb) == 0
+    error_message = "No module-managed Web ACL must be created unless create_web_acl is true."
+  }
+  assert {
+    condition     = length(aws_cloudwatch_log_group.tenant_alb_waf) == 0 && length(aws_wafv2_web_acl_logging_configuration.tenant_alb) == 0
+    error_message = "No WAF log group or logging configuration must be created unless create_web_acl is true."
+  }
+}
+run "custom_alb_web_acl_opt_in" {
+  command = plan
+  variables {
+    external_ingress          = true
+    create_web_acl            = true
+    domain_name               = "example.com"
+    tenant                    = "test"
+    account_id                = "111111111111"
+    perimeter_account_id      = "222222222222"
+    vpc_name                  = "example-vpc"
+    public_subnet_filter      = "example-public-*"
+    acm_certificate_arn       = "arn:aws:acm:eu-west-2:111111111111:certificate/00000000-0000-0000-0000-000000000000"
+    workload_external_nlb_ips = ["10.10.1.10", "10.10.2.10", "10.10.3.10"]
+    tags = {
+      Environment = "test"
+    }
+  }
+  assert {
+    condition     = length(aws_wafv2_web_acl.tenant_alb) == 1 && length(aws_wafv2_web_acl_association.tenant_alb) == 1
+    error_message = "Module-managed Web ACL and association must be created when create_web_acl is true."
+  }
+  assert {
+    condition     = length(aws_cloudwatch_log_group.tenant_alb_waf) == 1 && length(aws_wafv2_web_acl_logging_configuration.tenant_alb) == 1
+    error_message = "WAF log group and logging configuration must be created when create_web_acl is true."
+  }
+}
