@@ -138,7 +138,7 @@ resource "aws_security_group" "alb_sg" {
 ############################
 # ALB
 ############################
-#checkov:skip=CKV2_AWS_76: False positive - ALB is explicitly associated to a REGIONAL Web ACL that includes AWSManagedRulesKnownBadInputsRuleSet for Log4j coverage.
+#checkov:skip=CKV2_AWS_76: ALB is protected either by the optional module-managed Web ACL (create_web_acl) or by the FMS-managed policy selected via the waf:* tags.
 resource "aws_lb" "tenant_alb" {
   count              = var.external_ingress ? 1 : 0
   name               = local.alb_name
@@ -160,7 +160,7 @@ resource "aws_lb" "tenant_alb" {
 
 #checkov:skip=CKV2_AWS_76: False positive - this Web ACL includes AWS managed rule coverage for known bad inputs including Log4j signatures.
 resource "aws_wafv2_web_acl" "tenant_alb" {
-  count = var.external_ingress ? 1 : 0
+  count = var.external_ingress && var.create_web_acl ? 1 : 0
   name  = "${local.name_part}-ext-${var.account_id}-waf"
   scope = "REGIONAL"
 
@@ -245,13 +245,13 @@ resource "aws_wafv2_web_acl" "tenant_alb" {
 
 #checkov:skip=CKV2_AWS_76: False positive - association directly attaches aws_wafv2_web_acl.tenant_alb to aws_lb.tenant_alb.
 resource "aws_wafv2_web_acl_association" "tenant_alb" {
-  count        = var.external_ingress ? 1 : 0
+  count        = var.external_ingress && var.create_web_acl ? 1 : 0
   resource_arn = aws_lb.tenant_alb[0].arn
   web_acl_arn  = aws_wafv2_web_acl.tenant_alb[0].arn
 }
 
 resource "aws_cloudwatch_log_group" "tenant_alb_waf" {
-  count             = var.external_ingress ? 1 : 0
+  count             = var.external_ingress && var.create_web_acl ? 1 : 0
   name              = "aws-waf-logs-${local.name_part}-ext-${var.account_id}"
   retention_in_days = var.waf_log_retention_in_days
   kms_key_id        = var.waf_log_kms_key_id != "" ? var.waf_log_kms_key_id : null
@@ -259,7 +259,7 @@ resource "aws_cloudwatch_log_group" "tenant_alb_waf" {
 }
 
 resource "aws_wafv2_web_acl_logging_configuration" "tenant_alb" {
-  count                   = var.external_ingress ? 1 : 0
+  count                   = var.external_ingress && var.create_web_acl ? 1 : 0
   log_destination_configs = [aws_cloudwatch_log_group.tenant_alb_waf[0].arn]
   resource_arn            = aws_wafv2_web_acl.tenant_alb[0].arn
 }

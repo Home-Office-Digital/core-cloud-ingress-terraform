@@ -65,9 +65,14 @@ variable "additional_certificate_arns" {
 }
 
 variable "waf_web_acl_arn" {
-  description = "Deprecated. Custom ALB now always creates and associates a module-managed REGIONAL WAFv2 Web ACL for compliance controls."
+  description = "Deprecated and unused. Use create_web_acl to opt in to a module-managed REGIONAL WAFv2 Web ACL."
   type        = string
   default     = ""
+}
+variable "create_web_acl" {
+  description = "Opt in to a module-managed REGIONAL WAFv2 Web ACL (with association, log group and logging) for this ALB. Leave false when the ALB is protected by an FMS-managed policy via the waf:* tags, as an ALB can only have one Web ACL associated."
+  type        = bool
+  default     = false
 }
 
 variable "waf_log_retention_in_days" {
